@@ -30,7 +30,7 @@ Singleton `Config` class validates env vars at startup. Throws on missing requir
 ### Error Handling (`src/shared/middlewares/errorHandler.ts`)
 - `AppError` class for operational errors with `statusCode`
 - `asyncHandler` wrapper eliminates try/catch boilerplate in route handlers
-- Handles Mongoose `ValidationError`, `CastError`, `MongoServerError` (duplicate key 11000)
+- Handles `ZodError` (400 with field-level messages), Mongoose `ValidationError`, `CastError`, `MongoServerError` (duplicate key 11000)
 - Auth errors must use `AppError` with 401/403 — never bypass the central handler
 
 ### Logging (`src/shared/utils/logger.ts`)
@@ -51,21 +51,19 @@ src/
   server.ts                       # Entry point: DB connect, listen, graceful shutdown
 
   modules/                        # One folder per domain feature
-    auth/
-      auth.routes.ts              # Express router — POST /auth/register|login|refresh|logout
+    auth/                         # ✅ Implemented
+      auth.routes.ts              # Express router — POST /auth/register
       auth.controller.ts          # Request/response only — calls AuthService, sets cookies
-      auth.service.ts             # Business logic — bcrypt, JWT sign/verify, token rotation
-      auth.schema.ts              # Zod schemas — LoginSchema, RegisterSchema, RefreshSchema
+      auth.service.ts             # Business logic — bcrypt, JWT sign/verify, token generation
+      auth.schema.ts              # Zod schemas — RegisterSchema
       auth.types.ts               # Types local to auth — TokenPair, TokenPayload, AuthResult
       index.ts                    # Re-exports router as default, types as named exports
 
-    user/
-      user.routes.ts              # Express router — GET /users/me, PATCH /users/me
-      user.controller.ts          # Thin handlers — calls UserService
-      user.service.ts             # User queries, profile updates
+    user/                         # ✅ Implemented
+      user.routes.ts              # Express router — (empty, ready for future routes)
+      user.service.ts             # createUser, findUserByEmail, toPublicUser
       user.model.ts               # Mongoose schema + model — IUser, IUserDocument
-      user.schema.ts              # Zod schemas — UpdateProfileSchema
-      user.types.ts               # Types local to user — PublicUser, UpdateProfileDto
+      user.types.ts               # Types — IUser, IUserDocument, PublicUser
       index.ts                    # Re-exports router + types
 
     # future modules follow the same pattern:
@@ -73,10 +71,8 @@ src/
 
   shared/                         # Cross-cutting infrastructure — no feature logic
     middlewares/
-      errorHandler.ts             # AppError class, asyncHandler, global error middleware
+      errorHandler.ts             # AppError class, asyncHandler, ZodError + Mongoose error handling
       auth.middleware.ts          # requireAuth, optionalAuth — reads JWT, sets req.user
-      validate.middleware.ts      # validateBody(schema) — runs Zod, throws on failure
-      rateLimiter.ts              # express-rate-limit presets (authLimiter, apiLimiter)
 
     config/
       env.ts                      # Config singleton — validates all env vars at startup
@@ -85,14 +81,12 @@ src/
     utils/
       logger.ts                   # Console logger with ISO timestamps, redacts secrets
       cookie.ts                   # setRefreshTokenCookie / clearRefreshTokenCookie helpers
-      response.ts                 # sendSuccess(res, data, status) / sendError helpers
 
     types/
       express.d.ts                # Augments Express.Request with req.user?: IUserDocument
-      index.ts                    # Shared domain types (ApiResponse<T>, PaginatedResult<T>)
 ```
 
-### Module anatomy — every module follows this exact layout
+### Module anatomy — every module follows this layout (create files as needed)
 
 ```
 modules/<name>/
@@ -128,23 +122,20 @@ import { UserModel } from '@modules/user/user.model';     // FORBIDDEN
 
 ### Path aliases — use aliases, never relative `../../` chains
 
-Configure in `tsconfig.json`:
+Configured in `tsconfig.json`:
 ```json
 {
   "compilerOptions": {
-    "baseUrl": "src",
+    "baseUrl": ".",
     "paths": {
-      "@modules/*": ["modules/*"],
-      "@shared/*": ["shared/*"],
-      "@config/*": ["shared/config/*"],
-      "@utils/*":  ["shared/utils/*"],
-      "@middlewares/*": ["shared/middlewares/*"]
+      "@modules/*": ["src/modules/*"],
+      "@shared/*": ["src/shared/*"]
     }
   }
 }
 ```
 
-And mirror in `tsconfig-paths` / `module-alias` for runtime (ts-node-dev):
+Runtime resolution via `module-alias` (configured in `package.json` `_moduleAliases`):
 ```typescript
 // src/server.ts — must be the first import
 import 'module-alias/register';
@@ -152,9 +143,9 @@ import 'module-alias/register';
 
 ```typescript
 // ✅ Always use path aliases
-import { requireAuth } from '@middlewares/auth.middleware';
-import { logger } from '@utils/logger';
-import { Config } from '@config/env';
+import { requireAuth } from '@shared/middlewares/auth.middleware';
+import logger from '@shared/utils/logger';
+import config from '@shared/config/env';
 
 // ❌ Never use deep relative imports across modules
 import { requireAuth } from '../../shared/middlewares/auth.middleware';
@@ -406,7 +397,12 @@ const user = await User.findById(id).lean<IUser>();
 ```
 
 ### Index fields used in queries
+Use `unique: true` on the schema field definition. **Do not** add a duplicate `schema.index()` call — Mongoose will warn about duplicate indexes.
 ```typescript
+// ✅ unique: true on the field already creates the index
+email: { type: String, required: true, unique: true, lowercase: true, trim: true }
+
+// ❌ Don't also call schema.index() — causes Mongoose duplicate index warning
 UserSchema.index({ email: 1 }, { unique: true });
 ```
 

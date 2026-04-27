@@ -1,21 +1,18 @@
+import 'module-alias/register';
+
 import app from './app';
-import database from './config/database';
-import logger from './utils/logger';
-import config from './config/env';
+import database from '@shared/config/database';
+import logger from '@shared/utils/logger';
+import config from '@shared/config/env';
 
 const { port, appName, nodeEnv } = config.get();
 
 async function startServer() {
   try {
-    // Connect to database
     await database.connect();
 
-    // Start server
     app.listen(port, () => {
-      logger.info(`${appName} is running`, {
-        port,
-        environment: nodeEnv
-      });
+      logger.info(`${appName} is running`, { port, environment: nodeEnv });
       logger.info(`Health check: http://localhost:${port}/health`);
     });
   } catch (error) {
@@ -24,7 +21,6 @@ async function startServer() {
   }
 }
 
-// Handle graceful shutdown
 process.on('SIGINT', async () => {
   logger.info('SIGINT received, shutting down gracefully...');
   await database.disconnect();

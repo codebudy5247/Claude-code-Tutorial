@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
+import { ZodError } from 'zod';
 import logger from '../utils/logger';
 
 export class AppError extends Error {
@@ -20,6 +21,22 @@ export const errorHandler = (
   res: Response,
   next: NextFunction
 ): void => {
+  // Handle Zod Validation Errors
+  if (err instanceof ZodError) {
+    const errors = err.issues.map(issue => ({
+      field: issue.path.join('.'),
+      message: issue.message,
+    }));
+    logger.error('Validation Error', { errors, path: req.path });
+
+    res.status(400).json({
+      status: 'error',
+      message: 'Validation failed',
+      errors,
+    });
+    return;
+  }
+
   // Handle Mongoose Validation Errors
   if (err instanceof mongoose.Error.ValidationError) {
     const errors = Object.values(err.errors).map(e => e.message);

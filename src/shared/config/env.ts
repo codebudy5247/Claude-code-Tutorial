@@ -1,8 +1,7 @@
 import dotenv from "dotenv";
 import { resolve } from "path";
 
-// Load environment variables from .env file
-dotenv.config({ path: resolve(__dirname, "../../.env") });
+dotenv.config({ path: resolve(__dirname, "../../../.env") });
 
 interface EnvironmentConfig {
   port: number;
@@ -10,6 +9,10 @@ interface EnvironmentConfig {
   mongoUri: string;
   logLevel: string;
   appName: string;
+  jwtSecret: string;
+  jwtExpiresIn: string;
+  refreshSecret: string;
+  refreshExpiresIn: string;
 }
 
 class Config {
@@ -19,12 +22,13 @@ class Config {
     this.config = {
       port: this.getNumber("PORT", 3000),
       nodeEnv: this.getString("NODE_ENV", "development"),
-      mongoUri: this.getString(
-        "MONGO_URI",
-        "mongodb://localhost:27017/test_db"
-      ),
+      mongoUri: this.getString("MONGO_URI", "mongodb://localhost:27017/test_db"),
       logLevel: this.getString("LOG_LEVEL", "info"),
       appName: this.getString("APP_NAME", "API"),
+      jwtSecret: this.getString("JWT_SECRET", ""),
+      jwtExpiresIn: this.getString("JWT_EXPIRES_IN", "15m"),
+      refreshSecret: this.getString("REFRESH_SECRET", ""),
+      refreshExpiresIn: this.getString("REFRESH_EXPIRES_IN", "7d"),
     };
 
     this.validate();
@@ -50,15 +54,21 @@ class Config {
       throw new Error("MONGO_URI is required");
     }
 
+    if (!this.config.jwtSecret) {
+      throw new Error("JWT_SECRET is required");
+    }
+
+    if (!this.config.refreshSecret) {
+      throw new Error("REFRESH_SECRET is required");
+    }
+
     if (this.config.port < 1 || this.config.port > 65535) {
       throw new Error("PORT must be between 1 and 65535");
     }
 
     const validEnvs = ["development", "production", "test"];
     if (!validEnvs.includes(this.config.nodeEnv)) {
-      console.warn(
-        `Warning: NODE_ENV should be one of: ${validEnvs.join(", ")}`
-      );
+      console.warn(`Warning: NODE_ENV should be one of: ${validEnvs.join(", ")}`);
     }
   }
 
