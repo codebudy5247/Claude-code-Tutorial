@@ -1,4 +1,4 @@
-import config from '../config/env';
+import config from '@shared/config/env';
 
 enum LogLevel {
   INFO = 'INFO',

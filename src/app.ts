@@ -1,15 +1,14 @@
 import express, { Application, Request, Response } from 'express';
-import { errorHandler } from './middlewares/errorHandler';
-import logger from './utils/logger';
-import config from './config/env';
+import { errorHandler } from '@shared/middlewares/errorHandler';
+import logger from '@shared/utils/logger';
+import config from '@shared/config/env';
+import { authRouter } from '@modules/auth';
 
 const app: Application = express();
 
-// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Request logging middleware
 app.use((req: Request, res: Response, next) => {
   logger.info(`${req.method} ${req.path}`, {
     body: req.body,
@@ -18,8 +17,7 @@ app.use((req: Request, res: Response, next) => {
   next();
 });
 
-// Routes
-app.get('/health', (req: Request, res: Response) => {
+app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({
     status: 'ok',
     message: 'Server is running',
@@ -29,15 +27,15 @@ app.get('/health', (req: Request, res: Response) => {
   });
 });
 
-// 404 handler
-app.use((req: Request, res: Response) => {
+app.use('/auth', authRouter);
+
+app.use((_req: Request, res: Response) => {
   res.status(404).json({
     status: 'error',
     message: 'Route not found'
   });
 });
 
-// Error handling middleware (must be last)
 app.use(errorHandler);
 
 export default app;

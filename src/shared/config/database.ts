@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
-import logger from '../utils/logger';
-import config from './env';
+import logger from '@shared/utils/logger';
+import config from '@shared/config/env';
 
 class Database {
   async connect(uri?: string): Promise<void> {
