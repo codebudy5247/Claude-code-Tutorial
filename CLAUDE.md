@@ -28,68 +28,19 @@ pnpm typecheck  # Type check without emitting
 
 ## Project Structure
 
-```
-src/
-  app.ts                 # Express app: middleware, mounts routers
-  server.ts              # Entry point: DB connect, listen, graceful shutdown
-  modules/               # Feature-first modules
-    auth/                # Registration, login, refresh, logout
-    user/                # User model and queries
-  shared/                # Cross-cutting infrastructure
-    middlewares/
-      errorHandler.ts    # AppError, asyncHandler, ZodError/Mongoose handling
-      auth.middleware.ts # requireAuth, optionalAuth
-    config/
-      env.ts             # Config singleton with env validation
-      database.ts        # Mongoose connection singleton
-    utils/
-      logger.ts          # Console logger with ISO timestamps
-      cookie.ts          # setRefreshTokenCookie / clearRefreshTokenCookie
-    types/
-      express.d.ts       # req.user augmentation
-```
-
-### Module anatomy
-
-Each module lives in `src/modules/<name>/` with up to 7 files: routes, controller, service, model, schema, types, and `index.ts` as the public boundary.
-
-**Always import from the module index, never internal files:**
-```typescript
-// ✅
-import { userRouter } from '@modules/user';
-
-// ❌ FORBIDDEN
-import { UserService } from '@modules/user/user.service';
-```
-
-### Path aliases
-
-```typescript
-// ✅ Always use path aliases
-import { requireAuth } from '@shared/middlewares/auth.middleware';
-
-// ❌ Never use relative ../../ chains across modules
-```
-
-Runtime resolution: `module-alias/register` must be the first import in `src/server.ts`.
+`src/` — Express app entry. `src/modules/` — feature modules (auth, user). `src/shared/` — middleware, config, utils. Full details: `agent_docs/project-structure.md`
 
 ---
 
 ## Environment Variables
 
-| Variable | Required | Description |
-|---|---|---|
-| `MONGO_URI` | Yes | MongoDB connection string |
-| `JWT_SECRET` | Yes | Access token signing secret (min 64 chars) |
-| `REFRESH_SECRET` | Yes | Refresh token signing secret (min 64 chars) |
-| `JWT_EXPIRES_IN` | No | Access token lifetime (default: 15m) |
-| `REFRESH_EXPIRES_IN` | No | Refresh token lifetime (default: 7d) |
-| `PORT` | No | Server port (default: 3000) |
-| `NODE_ENV` | No | Runtime mode (default: development) |
+Configure `MONGO_URI`, `JWT_SECRET`, and `REFRESH_SECRET` — others have sensible defaults (`PORT`: 3000, `NODE_ENV`: development, token lifetimes: 15m/7d).
 
 ---
 
 ## Critical Conventions
+
+Detailed conventions: `agent_docs/code-conventions.md`
 
 ### Authentication
 
@@ -121,11 +72,7 @@ Runtime resolution: `module-alias/register` must be the first import in `src/ser
 
 ### Express
 
-- Route files are thin — no business logic, call services only
-- Validate input with Zod before passing to services
-- Never call `next()` after sending a response
-- Never use `res.send()` for JSON — always `res.json()`
-- Never add route-specific middleware (auth, rate limiters) globally in `app.ts`
+Keep routes thin — validate with Zod, delegate to services. Never call `next()` after sending, never use `res.send()` for JSON.
 
 ### Mongoose
 
@@ -148,6 +95,8 @@ Runtime resolution: `module-alias/register` must be the first import in `src/ser
 ---
 
 ## Key Files
+
+Full reference: `agent_docs/project-structure.md`
 
 - `src/app.ts` — middleware stack and router registration
 - `src/server.ts` — startup and graceful shutdown
